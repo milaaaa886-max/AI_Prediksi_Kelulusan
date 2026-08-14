@@ -1,43 +1,69 @@
 """
-train.py - AI Prediksi Kelulusan Mahasiswa
-Melatih model AI untuk memprediksi apakah mahasiswa LULUS atau TIDAK LULUS
-berdasarkan nilai tugas, UTS, UAS, dan persentase kehadiran.
+train.py - Tahap BELAJAR (AI Prediksi Kelulusan)
+=================================================
+Teknik: Logistic Regression (scikit-learn).
 
-Cara pakai:
-    python train.py
+CATATAN PENTING soal pemilihan metode:
+Data proyek ini berupa ANGKA (nilai tugas, UTS, UAS, kehadiran),
+BUKAN teks. Karena itu kita TIDAK memakai embedding + cosine
+similarity seperti proyek teks — memaksa embedding ke data angka
+adalah metode yang salah. Untuk data numerik terstruktur seperti
+ini, Logistic Regression adalah pilihan yang tepat dan umum dipakai.
+
+Program mempelajari pola: kombinasi nilai & kehadiran seperti apa
+yang cenderung LULUS (1) atau TIDAK (0).
+
+Jalankan:  python train.py
 """
 
-import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, classification_report
-import joblib
-import os
+import csv
+import pickle
+
+try:
+    from sklearn.linear_model import LogisticRegression
+except ImportError:
+    print("Pustaka belum lengkap. Jalankan dulu:")
+    print("   pip install -r requirements.txt")
+    raise SystemExit(1)
 
 DATA_PATH = "data/dataset.csv"
-df = pd.read_csv(DATA_PATH)
+OUTPUT = "model.pkl"
 
-print(f"Total data: {len(df)}")
-print(df["status"].value_counts())
 
-# Fitur (input) dan label (output)
-X = df[["nilai_tugas", "nilai_uts", "nilai_uas", "kehadiran"]]
-y = df["status"]
+def baca_dataset(path):
+    """Baca CSV. X = fitur angka, y = label lulus/tidak."""
+    X, y = [], []
+    with open(path, encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for baris in reader:
+            X.append([
+                float(baris["nilai_tugas"]),
+                float(baris["nilai_uts"]),
+                float(baris["nilai_uas"]),
+                float(baris["kehadiran"]),
+            ])
+            y.append(int(baris["lulus"]))
+    return X, y
 
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42, stratify=y
-)
 
-model = LogisticRegression()
-model.fit(X_train, y_train)
+def main():
+    print("Membaca dataset...")
+    X, y = baca_dataset(DATA_PATH)
+    print(f"   {len(X)} data mahasiswa dimuat.")
 
-y_pred = model.predict(X_test)
-acc = accuracy_score(y_test, y_pred)
-print(f"\nAkurasi model: {acc * 100:.2f}%")
-print("\nLaporan klasifikasi:")
-print(classification_report(y_test, y_pred))
+    print("Melatih model Logistic Regression...")
+    model = LogisticRegression(max_iter=1000)
+    model.fit(X, y)
 
-os.makedirs("models", exist_ok=True)
-joblib.dump(model, "models/kelulusan_model.pkl")
+    akurasi = model.score(X, y)
+    print(f"   Akurasi pada data latih: {akurasi*100:.1f}%")
 
-print("\nModel berhasil disimpan di folder 'models/'")
+    with open(OUTPUT, "wb") as f:
+        pickle.dump(model, f)
+
+    print(f"\nSelesai! Model disimpan di '{OUTPUT}'.")
+    print("Lanjut jalankan:  python predict.py")
+
+
+if __name__ == "__main__":
+    main()
